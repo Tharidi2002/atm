@@ -30,3 +30,7 @@ CREATE TABLE alert_logs (
     status VARCHAR(20) DEFAULT 'PENDING',
     FOREIGN KEY (atm_id) REFERENCES atm_machines(id) ON DELETE CASCADE
 );
+
+INSERT INTO atm_machines (atm_code, location, sim_number, status) 
+VALUES ('ATM-MAIN-01', 'Colombo 03', '0772032675', 'ACTIVE');
+

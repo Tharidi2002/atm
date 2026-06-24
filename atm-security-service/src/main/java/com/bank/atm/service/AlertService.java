@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class AlertService {
@@ -36,13 +38,15 @@ public class AlertService {
             alertLog.setAtmMachine(null);
         }
 
-        // Z8B මැෂින් එකෙන් සාමාන්‍යයෙන් එන SMS රටාව: "Alarm! Zone:05 Fire" වගේ එකක්
-        // අපි සරලව සෙන්සර් කලාපය (Zone) සහ අනතුර (Alert Type) වෙන් කරගනිමු (Parsing)
+        // Z8B මැෂින් එකෙන් එන SMS රටාව (උදා: "Alarm! Zone:05 Fire") Regex මඟින් ආරක්ෂිතව වෙන් කරගැනීම
         try {
-            if (smsContent.contains("Zone:")) {
-                int zoneIndex = smsContent.indexOf("Zone:");
-                // Zone:05 කියන කොටසෙන් 05 කියන අංකය ගන්නවා
-                String zoneStr = smsContent.substring(zoneIndex + 5, zoneIndex + 7).trim();
+            // "Zone:" සහ ඊට පසු තියෙන ඉලක්කම් (Digits) සොයයි
+            Pattern pattern = Pattern.compile("Zone:\\s*(\\d+)");
+            Matcher matcher = pattern.matcher(smsContent);
+            
+            if (matcher.find()) {
+                // පළමු group එක ලෙස අදාළ ඉලක්කම ලබාගනී (උදා: 05 හෝ 5)
+                String zoneStr = matcher.group(1);
                 alertLog.setZoneNumber(Integer.parseInt(zoneStr));
             } else {
                 alertLog.setZoneNumber(0); // පොදු අනතුරක් නම් (උදා: Power Failure)

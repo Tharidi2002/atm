@@ -9,7 +9,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/alerts")
-@CrossOrigin(origins = "*") // React එක සමඟ ලේසියෙන් සම්බන්ධ වීමට
+@CrossOrigin(origins = "*") // Test Lap එකේ Postman හෝ වෙනත් ඕනෑම බාහිර IP එකකට අවසර දීම සඳහා
 public class AlertController {
 
     private final AlertService alertService;
@@ -18,8 +18,8 @@ public class AlertController {
         this.alertService = alertService;
     }
 
-    // 1. සැබෑ මැෂින් එකක් නැතිව SMS එකක් ආවා වගේ Simulate කරන්න හදන API එක
-    // URL: POST http://localhost:8080/api/alerts/sms-simulate
+    // 1. Test Lap එකේ Postman එකෙන් SMS එකක් ආවා වගේ simulate කරලා My Lap DB එක update කරන API එක
+    // URL: POST http://<MY_LAP_IP>:8080/api/alerts/sms-simulate
     @PostMapping("/sms-simulate")
     public ResponseEntity<AlertLog> simulateSMS(@RequestBody Map<String, String> smsData) {
         String simNumber = smsData.get("simNumber");
@@ -29,8 +29,8 @@ public class AlertController {
         return ResponseEntity.ok(savedLog);
     }
 
-    // 2. දැනට තියෙන ඔක්කොම Alerts ලැයිස්තුව ගන්න API එක (React Dashboard එකට)
-    // URL: GET http://localhost:8080/api/alerts
+    // 2. දැනට තියෙන ඔක්කොම Alerts ලැයිස්තුව බලන API එක
+    // URL: GET http://<MY_LAP_IP>:8080/api/alerts
     @GetMapping
     public ResponseEntity<List<AlertLog>> getAllAlerts() {
         return ResponseEntity.ok(alertService.getAllAlerts());
