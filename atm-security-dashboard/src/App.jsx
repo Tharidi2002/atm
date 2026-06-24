@@ -31,6 +31,83 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Zone numbers display කරන function එක - FIXED
+  const formatZoneNumbers = (zoneNumbers) => {
+    // zoneNumbers එක string එකක්ද කියලා check කරන්න
+    if (!zoneNumbers || typeof zoneNumbers !== 'string') {
+      return <span className="text-slate-500 text-xs">No Zone</span>;
+    }
+    
+    // zoneNumbers එක "00" හෝ "0" නම්
+    if (zoneNumbers === "00" || zoneNumbers === "0") {
+      return <span className="text-slate-500 text-xs">No Zone</span>;
+    }
+    
+    const zones = zoneNumbers.split(',').map(z => z.trim());
+    
+    return (
+      <div className="flex flex-wrap gap-1">
+        {zones.map((zone, index) => (
+          <span 
+            key={index}
+            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30"
+          >
+            Zone {String(zone).padStart(2, '0')}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  // Alert type එක format කරන function එක
+  const formatAlertType = (alertType) => {
+    if (!alertType) return 'Unknown Alert';
+    
+    // Message එක ඉතා දිග නම් කපා දමන්න
+    if (alertType.length > 60) {
+      return alertType.substring(0, 60) + '...';
+    }
+    return alertType;
+  };
+
+  // Status badge color එක determine කරන function එක
+  const getStatusBadge = (status) => {
+    if (status === 'PENDING') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide border bg-red-500/10 text-red-400 border-red-500/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
+          PENDING
+        </span>
+      );
+    } else {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          RESOLVED
+        </span>
+      );
+    }
+  };
+
+  // Zone number එක extract කරන function එක (Backup)
+  const getZoneDisplay = (alert) => {
+    // අපි මුලින්ම zoneNumbers check කරමු
+    if (alert.zoneNumbers && typeof alert.zoneNumbers === 'string') {
+      return formatZoneNumbers(alert.zoneNumbers);
+    }
+    
+    // zoneNumbers නැත්නම් zoneNumber check කරමු
+    if (alert.zoneNumber !== null && alert.zoneNumber !== undefined && alert.zoneNumber > 0) {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+          Zone {String(alert.zoneNumber).padStart(2, '0')}
+        </span>
+      );
+    }
+    
+    return <span className="text-slate-500 text-xs">No Zone</span>;
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 font-sans">
       {/* Top Navigation Bar */}
@@ -110,14 +187,7 @@ function App() {
                   {alerts.map((alert) => (
                     <tr key={alert.id} className="hover:bg-slate-900/40 transition-colors">
                       <td className="py-4 px-6">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide border ${
-                          alert.status === 'PENDING' 
-                            ? 'bg-red-500/10 text-red-400 border-red-500/20' 
-                            : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${alert.status === 'PENDING' ? 'bg-red-500 animate-ping' : 'bg-emerald-500'}`}></span>
-                          {alert.status}
-                        </span>
+                        {getStatusBadge(alert.status)}
                       </td>
                       <td className="py-4 px-6 font-mono font-bold text-white">
                         {alert.atmMachine ? alert.atmMachine.atmCode : 'UNKNOWN'}
@@ -128,11 +198,11 @@ function App() {
                           {alert.atmMachine ? alert.atmMachine.location : 'External Network Device'}
                         </div>
                       </td>
-                      <td className="py-4 px-6 font-mono text-amber-400 font-semibold">
-                        Zone {alert.zoneNumber ? String(alert.zoneNumber).padStart(2, '0') : '00'}
+                      <td className="py-4 px-6">
+                        {getZoneDisplay(alert)}
                       </td>
                       <td className="py-4 px-6 font-mono text-slate-400 max-w-xs truncate">
-                        {alert.alertType}
+                        {formatAlertType(alert.alertType)}
                       </td>
                       <td className="py-4 px-6 text-slate-400 text-xs font-mono">
                         <div className="flex items-center gap-1">
