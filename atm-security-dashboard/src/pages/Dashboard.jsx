@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import Navbar from '../components/Navbar';
 import StatsCards from '../components/StatsCards';
@@ -8,12 +9,21 @@ import NotificationToast from '../components/NotificationToast';
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, pending: 0, resolved: 0 });
   const [newAlert, setNewAlert] = useState(null);
   const tableContainerRef = useRef(null);
   const previousAlertIds = useRef(new Set());
+
+  // Super Admin නම් Banks page එකට redirect කරන්න
+  useEffect(() => {
+    if (user?.role === 'SUPER_ADMIN') {
+      // Super Admin ට Dashboard එකේ alerts නැහැ, Banks page එකට යන්න
+      navigate('/banks');
+    }
+  }, [user, navigate]);
 
   const loadAlerts = async () => {
     try {
@@ -48,10 +58,17 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    loadAlerts();
-    const interval = setInterval(loadAlerts, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    if (user?.role !== 'SUPER_ADMIN') {
+      loadAlerts();
+      const interval = setInterval(loadAlerts, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  // Super Admin ට alerts නැහැ - Banks page එකට යයි
+  if (user?.role === 'SUPER_ADMIN') {
+    return null;
+  }
 
   if (user?.role === 'BANK_ADMIN') {
     return (

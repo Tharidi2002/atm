@@ -1,7 +1,7 @@
 import React from 'react';
-import { Shield, RefreshCw, LogOut } from 'lucide-react';
+import { Shield, RefreshCw, LogOut, Building } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function Navbar({ onRefresh }) {
   const { user, logout } = useAuth();
@@ -27,14 +27,26 @@ export default function Navbar({ onRefresh }) {
         </div>
       </div>
       
-      <div className="flex items-center gap-3 w-full sm:w-auto">
+      <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap justify-center sm:justify-end">
+        {/* Super Admin ට විතරයි Banks Link එක පෙන්වන්න */}
+        {user?.role === 'SUPER_ADMIN' && (
+          <Link
+            to="/banks"
+            className="flex items-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 px-4 py-2 rounded-lg text-sm transition-all border border-blue-500/20 text-blue-400"
+          >
+            <Building className="w-4 h-4" /> Banks
+          </Link>
+        )}
+        
         <span className="text-xs text-slate-400 hidden sm:block">👤 {user?.fullName || 'User'}</span>
+        
         <button 
           onClick={onRefresh}
           className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg text-sm transition-all border border-slate-700"
         >
           <RefreshCw className="w-4 h-4" /> Refresh
         </button>
+        
         <button
           onClick={handleLogout}
           className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 px-4 py-2 rounded-lg text-sm transition-all border border-red-500/20 text-red-400"
