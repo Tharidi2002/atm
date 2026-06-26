@@ -5,36 +5,39 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "atm_machines")
+@Table(name = "users")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class AtmMachine {
+public class User {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "atm_code", unique = true, nullable = false)
-    private String atmCode;
-
-    @Column(name = "bank_id", nullable = false)
-    private Long bankId;
-
-    @Column(name = "branch_id", nullable = false)
-    private Long branchId;
+    @Column(unique = true, nullable = false)
+    private String username;
 
     @Column(nullable = false)
-    private String location;
+    private String password;
 
-    @Column(name = "sim_number", nullable = false)
-    private String simNumber;
+    private String email;
+
+    @Column(name = "full_name", nullable = false)
+    private String fullName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Role role;
+
+    @Column(name = "bank_id")
+    private Long bankId;
+
+    @Column(name = "branch_id")
+    private Long branchId;
 
     @Enumerated(EnumType.STRING)
     private Status status = Status.ACTIVE;
-
-    @Column(name = "created_by")
-    private Long createdBy;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -42,7 +45,11 @@ public class AtmMachine {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt = LocalDateTime.now();
 
+    public enum Role {
+        SUPER_ADMIN, BANK_ADMIN, BRANCH_ADMIN, BANK_USER
+    }
+
     public enum Status {
-        ACTIVE, INACTIVE, MAINTENANCE
+        ACTIVE, INACTIVE
     }
 }

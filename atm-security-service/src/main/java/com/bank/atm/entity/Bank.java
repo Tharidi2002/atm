@@ -5,30 +5,28 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "atm_machines")
+@Table(name = "banks")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class AtmMachine {
+public class Bank {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "atm_code", unique = true, nullable = false)
-    private String atmCode;
+    @Column(name = "bank_code", unique = true, nullable = false)
+    private String bankCode;
 
-    @Column(name = "bank_id", nullable = false)
-    private Long bankId;
+    @Column(name = "bank_name", nullable = false)
+    private String bankName;
 
-    @Column(name = "branch_id", nullable = false)
-    private Long branchId;
+    private String address;
 
-    @Column(nullable = false)
-    private String location;
+    @Column(name = "contact_number")
+    private String contactNumber;
 
-    @Column(name = "sim_number", nullable = false)
-    private String simNumber;
+    private String email;
 
     @Enumerated(EnumType.STRING)
     private Status status = Status.ACTIVE;
@@ -43,6 +41,6 @@ public class AtmMachine {
     private LocalDateTime updatedAt = LocalDateTime.now();
 
     public enum Status {
-        ACTIVE, INACTIVE, MAINTENANCE
+        ACTIVE, INACTIVE
     }
 }
