@@ -17,12 +17,19 @@ export default function Dashboard() {
   const tableContainerRef = useRef(null);
   const previousAlertIds = useRef(new Set());
 
-  // Super Admin නම් Banks page එකට redirect කරන්න
+  // 🔥 Role-based redirect
   useEffect(() => {
     if (user?.role === 'SUPER_ADMIN') {
-      // Super Admin ට Dashboard එකේ alerts නැහැ, Banks page එකට යන්න
       navigate('/banks');
+      return;
     }
+    
+    if (user?.role === 'BANK_ADMIN') {
+      navigate('/bank-dashboard');
+      return;
+    }
+    
+    // Branch Admin and Bank User stay on dashboard
   }, [user, navigate]);
 
   const loadAlerts = async () => {
@@ -58,32 +65,16 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    if (user?.role !== 'SUPER_ADMIN') {
+    if (user?.role !== 'SUPER_ADMIN' && user?.role !== 'BANK_ADMIN') {
       loadAlerts();
       const interval = setInterval(loadAlerts, 5000);
       return () => clearInterval(interval);
     }
   }, [user]);
 
-  // Super Admin ට alerts නැහැ - Banks page එකට යයි
-  if (user?.role === 'SUPER_ADMIN') {
+  // Super Admin and Bank Admin redirect කරනවා
+  if (user?.role === 'SUPER_ADMIN' || user?.role === 'BANK_ADMIN') {
     return null;
-  }
-
-  if (user?.role === 'BANK_ADMIN') {
-    return (
-      <div className="min-h-screen bg-slate-900 text-slate-100">
-        <Navbar onRefresh={loadAlerts} />
-        <main className="p-6 max-w-7xl mx-auto">
-          <div className="bg-slate-950 border border-slate-800 rounded-xl p-12 text-center">
-            <div className="text-amber-400 font-mono text-lg">
-              ⚠️ Bank Admin does not have access to alerts
-            </div>
-            <p className="text-slate-400 mt-2">Please use the Branches management page</p>
-          </div>
-        </main>
-      </div>
-    );
   }
 
   return (

@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -16,13 +17,30 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #64748b;
 }
+
+/* Toast animation */
 @keyframes slideIn {
-  from { transform: translateX(100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 .animate-slide-in {
   animation: slideIn 0.3s ease-out forwards;
 }
+
+/* Scroll smooth */
 .scroll-smooth {
   scroll-behavior: smooth;
+}
+
+/* Extra small screens (xs) */
+@media (min-width: 475px) {
+  .xs\:inline {
+    display: inline;
+  }
 }

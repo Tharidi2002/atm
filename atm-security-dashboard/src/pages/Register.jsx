@@ -1,22 +1,71 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Shield, User, Mail, Lock, AlertCircle } from 'lucide-react';
+import { Shield, User, Mail, Lock, AlertCircle, Building } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function Register() {
   const navigate = useNavigate();
+  const [banks, setBanks] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [loadingBanks, setLoadingBanks] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     password: '',
     fullName: '',
     email: '',
     role: 'BANK_USER',
-    bankId: null,
-    branchId: null,
+    bankId: '',
+    branchId: '',
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Banks load කරන්න (role එක BANK_ADMIN හෝ BRANCH_ADMIN නම්)
+  useEffect(() => {
+    if (formData.role === 'BANK_ADMIN' || formData.role === 'BRANCH_ADMIN' || formData.role === 'BANK_USER') {
+      loadBanks();
+    } else {
+      setBanks([]);
+      setBranches([]);
+      setFormData(prev => ({ ...prev, bankId: '', branchId: '' }));
+    }
+  }, [formData.role]);
+
+  // Branches load කරන්න (bankId එකක් selected නම්)
+  useEffect(() => {
+    if (formData.bankId && (formData.role === 'BRANCH_ADMIN' || formData.role === 'BANK_USER')) {
+      loadBranches(formData.bankId);
+    } else {
+      setBranches([]);
+      if (formData.role !== 'BANK_ADMIN') {
+        setFormData(prev => ({ ...prev, branchId: '' }));
+      }
+    }
+  }, [formData.bankId, formData.role]);
+
+  const loadBanks = async () => {
+    try {
+      setLoadingBanks(true);
+      const data = await api.getBanks();
+      // Active banks විතරයි පෙන්වන්න
+      setBanks(data.filter(b => b.status === 'ACTIVE'));
+    } catch (error) {
+      console.error('Error loading banks:', error);
+    } finally {
+      setLoadingBanks(false);
+    }
+  };
+
+  const loadBranches = async (bankId) => {
+    try {
+      const data = await api.getBranchesByBank(bankId);
+      setBranches(data.filter(b => b.status === 'ACTIVE'));
+    } catch (error) {
+      console.error('Error loading branches:', error);
+      setBranches([]);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,7 +74,13 @@ export default function Register() {
     setLoading(true);
 
     try {
-      await api.register(formData);
+      const submitData = {
+        ...formData,
+        bankId: formData.bankId ? parseInt(formData.bankId) : null,
+        branchId: formData.branchId ? parseInt(formData.branchId) : null,
+      };
+      
+      await api.register(submitData);
       setSuccess('Registration successful! Please login.');
       setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
@@ -34,6 +89,10 @@ export default function Register() {
       setLoading(false);
     }
   };
+
+  // Role එක අනුව bank/branch fields පෙන්වන්නද කියලා check කරන්න
+  const showBankField = ['BANK_ADMIN', 'BRANCH_ADMIN', 'BANK_USER'].includes(formData.role);
+  const showBranchField = ['BRANCH_ADMIN', 'BANK_USER'].includes(formData.role);
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -61,7 +120,7 @@ export default function Register() {
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="text-sm text-slate-400 block mb-1">Full Name</label>
+            <label className="text-sm text-slate-400 block mb-1">Full Name *</label>
             <div className="relative">
               <User className="w-5 h-5 text-slate-500 absolute left-3 top-1/2 transform -translate-y-1/2" />
               <input
@@ -75,7 +134,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400 block mb-1">Username</label>
+            <label className="text-sm text-slate-400 block mb-1">Username *</label>
             <div className="relative">
               <Mail className="w-5 h-5 text-slate-500 absolute left-3 top-1/2 transform -translate-y-1/2" />
               <input
@@ -102,7 +161,7 @@ export default function Register() {
           </div>
 
           <div>
-            <label className="text-sm text-slate-400 block mb-1">Password</label>
+            <label className="text-sm text-slate-400 block mb-1">Password *</label>
             <div className="relative">
               <Lock className="w-5 h-5 text-slate-500 absolute left-3 top-1/2 transform -translate-y-1/2" />
               <input
@@ -111,12 +170,13 @@ export default function Register() {
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-10 py-2 text-white focus:outline-none focus:border-red-500 transition-colors"
                 required
+                minLength="6"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-sm text-slate-400 block mb-1">Role</label>
+            <label className="text-sm text-slate-400 block mb-1">Role *</label>
             <select
               value={formData.role}
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
@@ -128,6 +188,68 @@ export default function Register() {
               <option value="SUPER_ADMIN">Super Admin</option>
             </select>
           </div>
+
+          {/* Bank Selection - BANK_ADMIN, BRANCH_ADMIN, BANK_USER ට පෙන්වන්න */}
+          {showBankField && (
+            <div>
+              <label className="text-sm text-slate-400 block mb-1">
+                {formData.role === 'BANK_ADMIN' ? 'Select Bank *' : 'Select Bank *'}
+              </label>
+              <div className="relative">
+                <Building className="w-5 h-5 text-slate-500 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                <select
+                  value={formData.bankId}
+                  onChange={(e) => setFormData({ ...formData, bankId: e.target.value, branchId: '' })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-10 py-2 text-white focus:outline-none focus:border-red-500 transition-colors"
+                  required={formData.role !== 'SUPER_ADMIN'}
+                >
+                  <option value="">Select a bank</option>
+                  {loadingBanks ? (
+                    <option disabled>Loading banks...</option>
+                  ) : (
+                    banks.map((bank) => (
+                      <option key={bank.id} value={bank.id}>
+                        {bank.bankName} ({bank.bankCode})
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+              {banks.length === 0 && !loadingBanks && (
+                <p className="text-xs text-amber-400 mt-1">
+                  ⚠️ No banks available. Please contact Super Admin.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Branch Selection - BRANCH_ADMIN, BANK_USER ට පෙන්වන්න */}
+          {showBranchField && formData.bankId && (
+            <div>
+              <label className="text-sm text-slate-400 block mb-1">Select Branch *</label>
+              <div className="relative">
+                <Building className="w-5 h-5 text-slate-500 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                <select
+                  value={formData.branchId}
+                  onChange={(e) => setFormData({ ...formData, branchId: e.target.value })}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-lg px-10 py-2 text-white focus:outline-none focus:border-red-500 transition-colors"
+                  required={formData.role !== 'SUPER_ADMIN' && formData.role !== 'BANK_ADMIN'}
+                >
+                  <option value="">Select a branch</option>
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.branchName} ({branch.branchCode})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {branches.length === 0 && formData.bankId && (
+                <p className="text-xs text-amber-400 mt-1">
+                  ⚠️ No branches available for this bank.
+                </p>
+              )}
+            </div>
+          )}
 
           <button
             type="submit"
