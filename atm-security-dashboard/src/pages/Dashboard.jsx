@@ -62,11 +62,9 @@ export default function Dashboard() {
     }
   };
 
-  // 🔥 New: Resolve Alert function
   const handleResolveAlert = async (alertId) => {
     try {
       await api.resolveAlert(alertId, user?.userId);
-      // Reload alerts
       loadAlerts();
     } catch (error) {
       console.error('Error resolving alert:', error);
@@ -86,25 +84,29 @@ export default function Dashboard() {
     return null;
   }
 
-  // 🔥 Bank User - Dashboard with Resolve button
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
       <Navbar onRefresh={loadAlerts} />
       
       <main className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
         {/* Role Badge */}
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-wrap justify-between items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-slate-400">Logged in as:</span>
             <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-semibold border border-blue-500/30">
               {user?.role}
             </span>
             <span className="text-xs text-slate-500">
-              {user?.fullName} • Branch: {user?.branchId}
+              {user?.fullName}
             </span>
+            {user?.branchId && (
+              <span className="text-xs text-slate-500">
+                • Branch: {user?.branchId}
+              </span>
+            )}
           </div>
           <div className="text-xs text-slate-500">
-            {user?.role === 'BANK_USER' ? '👁️ View Only' : '🛠️ Full Access'}
+            {user?.role === 'BANK_USER' ? '👁️ View & Resolve' : '🛠️ Full Access'}
           </div>
         </div>
 
