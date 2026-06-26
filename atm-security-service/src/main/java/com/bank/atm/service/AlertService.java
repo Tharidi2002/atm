@@ -2,8 +2,12 @@ package com.bank.atm.service;
 
 import com.bank.atm.entity.AlertLog;
 import com.bank.atm.entity.AtmMachine;
+import com.bank.atm.entity.Bank;
+import com.bank.atm.entity.Branch;
 import com.bank.atm.repository.AlertLogRepository;
 import com.bank.atm.repository.AtmMachineRepository;
+import com.bank.atm.repository.BankRepository;
+import com.bank.atm.repository.BranchRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
@@ -20,43 +24,77 @@ public class AlertService {
 
     private final AlertLogRepository alertLogRepository;
     private final AtmMachineRepository atmMachineRepository;
+    private final BankRepository bankRepository;
+    private final BranchRepository branchRepository;
 
-    public AlertLog processIncomingSMS(String fromSimNumber, String smsContent) {
+    // 🔥 Updated: Accept atmCode parameter
+    public AlertLog processIncomingSMS(String fromSimNumber, String smsContent, String atmCode) {
         AlertLog alertLog = new AlertLog();
         alertLog.setReceivedAt(LocalDateTime.now());
         alertLog.setStatus(AlertLog.Status.PENDING);
 
-        // 🔥 Find ATM by SIM number
-        Optional<AtmMachine> machineOpt = atmMachineRepository.findBySimNumber(fromSimNumber);
+        // 🔥 Priority 1: Find ATM by ATM Code (from ESP32)
+        Optional<AtmMachine> machineOpt = Optional.empty();
         
+        if (atmCode != null && !atmCode.isEmpty()) {
+            machineOpt = atmMachineRepository.findByAtmCode(atmCode);
+            if (machineOpt.isPresent()) {
+                System.out.println("[ATM]: Found ATM by Code: " + atmCode);
+            }
+        }
+        
+        // 🔥 Priority 2: If not found by ATM Code, try SIM number
+        if (!machineOpt.isPresent() && fromSimNumber != null && !fromSimNumber.isEmpty()) {
+            machineOpt = atmMachineRepository.findBySimNumber(fromSimNumber);
+            if (machineOpt.isPresent()) {
+                System.out.println("[ATM]: Found ATM by SIM: " + fromSimNumber);
+            }
+        }
+        
+        // 🔥 Priority 3: Try to extract ATM Code from message
+        if (!machineOpt.isPresent()) {
+            String extractedAtmCode = extractAtmCode(smsContent);
+            if (extractedAtmCode != null) {
+                machineOpt = atmMachineRepository.findByAtmCode(extractedAtmCode);
+                if (machineOpt.isPresent()) {
+                    System.out.println("[ATM]: Found ATM by extracted Code: " + extractedAtmCode);
+                }
+            }
+        }
+        
+        // 🔥 Set ATM details if found
         if (machineOpt.isPresent()) {
             AtmMachine atm = machineOpt.get();
             alertLog.setAtmId(atm.getId());
             alertLog.setBankId(atm.getBankId());
             alertLog.setBranchId(atm.getBranchId());
-            // 🔥 Set ATM Machine for response
             alertLog.setAtmMachine(atm);
+            
+            // Load Bank and Branch details
+            bankRepository.findById(atm.getBankId()).ifPresent(bank -> {
+                alertLog.setBank(bank);
+            });
+            branchRepository.findById(atm.getBranchId()).ifPresent(branch -> {
+                alertLog.setBranch(branch);
+            });
+            
+            System.out.println("[ATM]: ATM ID: " + atm.getId() + 
+                             ", Bank: " + atm.getBankId() + 
+                             ", Branch: " + atm.getBranchId());
         } else {
-            // If ATM not found, try to extract from message
-            // Some SMS might have ATM code in message
-            String atmCode = extractAtmCode(smsContent);
-            if (atmCode != null) {
-                Optional<AtmMachine> atmByCode = atmMachineRepository.findByAtmCode(atmCode);
-                if (atmByCode.isPresent()) {
-                    AtmMachine atm = atmByCode.get();
-                    alertLog.setAtmId(atm.getId());
-                    alertLog.setBankId(atm.getBankId());
-                    alertLog.setBranchId(atm.getBranchId());
-                    alertLog.setAtmMachine(atm);
-                }
-            }
+            System.out.println("[ATM]: ⚠️ ATM not found! SIM: " + fromSimNumber + ", Code: " + atmCode);
+            alertLog.setAtmId(null);
+            alertLog.setBankId(null);
+            alertLog.setBranchId(null);
         }
 
+        // Clean message
         String cleanMessage = smsContent;
         if (fromSimNumber != null && !fromSimNumber.isEmpty()) {
             cleanMessage = cleanMessage.replace(fromSimNumber, "").trim();
         }
 
+        // Extract zone numbers
         String zoneNumbers = extractZoneNumbers(smsContent);
         
         if (!zoneNumbers.isEmpty()) {
@@ -78,6 +116,21 @@ public class AlertService {
         return alertLogRepository.save(alertLog);
     }
 
+    // 🔥 Extract ATM Code from message
+    private String extractAtmCode(String smsContent) {
+        if (smsContent == null || smsContent.isEmpty()) {
+            return null;
+        }
+        // Pattern for ATM code like ATM-MAIN-01, ATM-Z8B-01 etc.
+        Pattern pattern = Pattern.compile("(ATM-[A-Z0-9-]+)", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(smsContent);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
+    }
+
+    // 🔥 Extract zone numbers from message
     private String extractZoneNumbers(String smsContent) {
         List<String> zones = new ArrayList<>();
         
@@ -110,30 +163,22 @@ public class AlertService {
         return uniqueZones.isEmpty() ? "" : String.join(",", uniqueZones);
     }
 
-    // 🔥 New method to extract ATM code from message
-    private String extractAtmCode(String smsContent) {
-        if (smsContent == null || smsContent.isEmpty()) {
-            return null;
-        }
-        // Pattern for ATM code like ATM-MAIN-01, ATM-Z8B-01 etc.
-        Pattern pattern = Pattern.compile("(ATM-[A-Z0-9-]+)", Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(smsContent);
-        if (matcher.find()) {
-            return matcher.group(1);
-        }
-        return null;
-    }
-
     public List<AlertLog> getAlertsByBranch(Long branchId) {
-        return alertLogRepository.findByBranchIdOrderByReceivedAtDesc(branchId);
+        List<AlertLog> alerts = alertLogRepository.findByBranchIdOrderByReceivedAtDesc(branchId);
+        loadAlertDetails(alerts);
+        return alerts;
     }
 
     public List<AlertLog> getAlertsByBank(Long bankId) {
-        return alertLogRepository.findByBankIdOrderByReceivedAtDesc(bankId);
+        List<AlertLog> alerts = alertLogRepository.findByBankIdOrderByReceivedAtDesc(bankId);
+        loadAlertDetails(alerts);
+        return alerts;
     }
 
     public List<AlertLog> getAllAlerts() {
-        return alertLogRepository.findAllByOrderByReceivedAtDesc();
+        List<AlertLog> alerts = alertLogRepository.findAllByOrderByReceivedAtDesc();
+        loadAlertDetails(alerts);
+        return alerts;
     }
 
     public AlertLog resolveAlert(Long alertId, Long userId) {
@@ -143,5 +188,26 @@ public class AlertService {
         alert.setResolvedBy(userId);
         alert.setResolvedAt(LocalDateTime.now());
         return alertLogRepository.save(alert);
+    }
+
+    // 🔥 Helper: Load ATM, Bank, Branch details
+    private void loadAlertDetails(List<AlertLog> alerts) {
+        alerts.forEach(alert -> {
+            if (alert.getAtmId() != null) {
+                atmMachineRepository.findById(alert.getAtmId()).ifPresent(atm -> {
+                    alert.setAtmMachine(atm);
+                });
+            }
+            if (alert.getBankId() != null) {
+                bankRepository.findById(alert.getBankId()).ifPresent(bank -> {
+                    alert.setBank(bank);
+                });
+            }
+            if (alert.getBranchId() != null) {
+                branchRepository.findById(alert.getBranchId()).ifPresent(branch -> {
+                    alert.setBranch(branch);
+                });
+            }
+        });
     }
 }

@@ -58,6 +58,11 @@ export default function AlertTable({
     );
   };
 
+  // 🔥 Check if alert has zones (should show resolve button)
+  const hasZones = (alert) => {
+    return alert.zoneNumbers && alert.zoneNumbers !== '00' && alert.zoneNumbers !== '0';
+  };
+
   const handleMessageClick = (alert) => {
     setSelectedAlert(alert);
     setShowMessageModal(true);
@@ -77,7 +82,12 @@ export default function AlertTable({
     }
   };
 
-  const canResolve = userRole === 'BANK_USER' || userRole === 'BRANCH_ADMIN';
+  // 🔥 Can resolve only if user has permission AND alert has zones
+  const canResolve = (alert) => {
+    return (userRole === 'BANK_USER' || userRole === 'BRANCH_ADMIN') && 
+           alert.status === 'PENDING' && 
+           hasZones(alert);
+  };
 
   if (loading) return <LoadingSkeleton />;
   if (alerts.length === 0) {
@@ -102,7 +112,7 @@ export default function AlertTable({
                 <th className="py-4 px-6">Zones</th>
                 <th className="py-4 px-6">Message</th>
                 <th className="py-4 px-6">Time</th>
-                {canResolve && (
+                {(userRole === 'BANK_USER' || userRole === 'BRANCH_ADMIN') && (
                   <th className="py-4 px-6 text-center">Action</th>
                 )}
               </tr>
@@ -139,9 +149,9 @@ export default function AlertTable({
                       {new Date(alert.receivedAt).toLocaleString()}
                     </div>
                   </td>
-                  {canResolve && (
+                  {(userRole === 'BANK_USER' || userRole === 'BRANCH_ADMIN') && (
                     <td className="py-4 px-6">
-                      {alert.status === 'PENDING' ? (
+                      {canResolve(alert) ? (
                         <button
                           onClick={() => handleResolve(alert.id)}
                           disabled={resolvingId === alert.id}
@@ -155,8 +165,12 @@ export default function AlertTable({
                             </>
                           )}
                         </button>
-                      ) : (
+                      ) : alert.status === 'RESOLVED' ? (
                         <span className="text-xs text-slate-500">✓ Resolved</span>
+                      ) : !hasZones(alert) ? (
+                        <span className="text-xs text-slate-500">—</span>
+                      ) : (
+                        <span className="text-xs text-slate-500">—</span>
                       )}
                     </td>
                   )}
@@ -209,7 +223,7 @@ export default function AlertTable({
                   <Clock className="w-3 h-3 flex-shrink-0" />
                   {new Date(alert.receivedAt).toLocaleString()}
                 </div>
-                {canResolve && alert.status === 'PENDING' && (
+                {(userRole === 'BANK_USER' || userRole === 'BRANCH_ADMIN') && canResolve(alert) && (
                   <button
                     onClick={() => handleResolve(alert.id)}
                     disabled={resolvingId === alert.id}
@@ -224,7 +238,7 @@ export default function AlertTable({
         </div>
       </div>
 
-      {/* Message Details Modal - Full Details with Bank & Branch Names */}
+      {/* Message Details Modal - Full Details */}
       {showMessageModal && selectedAlert && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto shadow-2xl">
@@ -275,7 +289,7 @@ export default function AlertTable({
                 </div>
               </div>
 
-              {/* 🔥 Bank & Branch Info Card - Names instead of IDs */}
+              {/* Bank & Branch Info Card */}
               <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
                 <h3 className="text-xs text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <Building className="w-4 h-4" /> Organization Information
@@ -323,7 +337,7 @@ export default function AlertTable({
                       );
                     })
                   ) : (
-                    <span className="text-slate-500">No zones detected</span>
+                    <span className="text-slate-500">No zones detected (Informational)</span>
                   )}
                 </div>
                 {selectedAlert.zoneNumbers && selectedAlert.zoneNumbers !== '00' && (
@@ -390,7 +404,9 @@ export default function AlertTable({
                 >
                   Close
                 </button>
-                {canResolve && selectedAlert.status === 'PENDING' && (
+                {(userRole === 'BANK_USER' || userRole === 'BRANCH_ADMIN') && 
+                 selectedAlert.status === 'PENDING' && 
+                 hasZones(selectedAlert) && (
                   <button
                     onClick={() => {
                       handleResolve(selectedAlert.id);

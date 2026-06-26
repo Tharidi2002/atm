@@ -9,6 +9,6 @@ public interface AtmMachineRepository extends JpaRepository<AtmMachine, Long> {
     List<AtmMachine> findByBranchId(Long branchId);
     List<AtmMachine> findByBankId(Long bankId);
     Optional<AtmMachine> findBySimNumber(String simNumber);
-    Optional<AtmMachine> findByAtmCode(String atmCode);  // 🔥 Add this
+    Optional<AtmMachine> findByAtmCode(String atmCode);  // 🔥 New
     boolean existsByAtmCode(String atmCode);
 }

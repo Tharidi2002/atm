@@ -15,13 +15,13 @@ public class AlertLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "atm_id", nullable = false)
+    @Column(name = "atm_id")
     private Long atmId;
 
-    @Column(name = "bank_id", nullable = false)
+    @Column(name = "bank_id")
     private Long bankId;
 
-    @Column(name = "branch_id", nullable = false)
+    @Column(name = "branch_id")
     private Long branchId;
 
     @Column(name = "zone_number")
