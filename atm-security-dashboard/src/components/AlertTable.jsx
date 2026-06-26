@@ -1,14 +1,21 @@
 import React, { useState } from 'react';
 import { 
   MapPin, Clock, MessageSquare, Phone, Bell, AlertTriangle, 
-  Eye, X 
+  Eye, X, CheckCircle, Check
 } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import LoadingSkeleton from './LoadingSkeleton';
 
-export default function AlertTable({ alerts, loading, tableContainerRef }) {
+export default function AlertTable({ 
+  alerts, 
+  loading, 
+  tableContainerRef,
+  onResolve,
+  userRole 
+}) {
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [showMessageModal, setShowMessageModal] = useState(false);
+  const [resolvingId, setResolvingId] = useState(null);
 
   const getMessageIcon = (alertType) => {
     if (!alertType) return <MessageSquare className="w-4 h-4 text-slate-400" />;
@@ -55,6 +62,23 @@ export default function AlertTable({ alerts, loading, tableContainerRef }) {
     setShowMessageModal(true);
   };
 
+  const handleResolve = async (alertId) => {
+    if (resolvingId) return;
+    if (!window.confirm('Are you sure you want to resolve this alert?')) return;
+    
+    setResolvingId(alertId);
+    try {
+      await onResolve(alertId);
+    } catch (error) {
+      console.error('Error resolving:', error);
+    } finally {
+      setResolvingId(null);
+    }
+  };
+
+  // 🔥 Check if user can resolve (BANK_USER or BRANCH_ADMIN)
+  const canResolve = userRole === 'BANK_USER' || userRole === 'BRANCH_ADMIN';
+
   if (loading) return <LoadingSkeleton />;
   if (alerts.length === 0) {
     return (
@@ -78,6 +102,9 @@ export default function AlertTable({ alerts, loading, tableContainerRef }) {
                 <th className="py-4 px-6">Zones</th>
                 <th className="py-4 px-6">Message</th>
                 <th className="py-4 px-6">Time</th>
+                {canResolve && (
+                  <th className="py-4 px-6 text-center">Action</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/50">
@@ -112,6 +139,27 @@ export default function AlertTable({ alerts, loading, tableContainerRef }) {
                       {new Date(alert.receivedAt).toLocaleString()}
                     </div>
                   </td>
+                  {canResolve && (
+                    <td className="py-4 px-6">
+                      {alert.status === 'PENDING' ? (
+                        <button
+                          onClick={() => handleResolve(alert.id)}
+                          disabled={resolvingId === alert.id}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg text-emerald-400 transition-colors text-xs disabled:opacity-50"
+                        >
+                          {resolvingId === alert.id ? (
+                            'Processing...'
+                          ) : (
+                            <>
+                              <Check className="w-3.5 h-3.5" /> Resolve
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-slate-500">✓ Resolved</span>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -156,9 +204,20 @@ export default function AlertTable({ alerts, loading, tableContainerRef }) {
                 <Eye className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
               </div>
 
-              <div className="flex items-center gap-1 text-slate-400 text-xs mt-1">
-                <Clock className="w-3 h-3 flex-shrink-0" />
-                {new Date(alert.receivedAt).toLocaleString()}
+              <div className="flex items-center justify-between mt-2">
+                <div className="flex items-center gap-1 text-slate-400 text-xs">
+                  <Clock className="w-3 h-3 flex-shrink-0" />
+                  {new Date(alert.receivedAt).toLocaleString()}
+                </div>
+                {canResolve && alert.status === 'PENDING' && (
+                  <button
+                    onClick={() => handleResolve(alert.id)}
+                    disabled={resolvingId === alert.id}
+                    className="flex items-center gap-1 px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg text-emerald-400 transition-colors text-xs disabled:opacity-50"
+                  >
+                    <Check className="w-3 h-3" /> Resolve
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -169,7 +228,6 @@ export default function AlertTable({ alerts, loading, tableContainerRef }) {
       {showMessageModal && selectedAlert && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto shadow-2xl">
-            {/* Modal Header */}
             <div className="flex justify-between items-center p-6 border-b border-slate-800">
               <div className="flex items-center gap-3">
                 {getMessageIcon(selectedAlert.alertType)}
@@ -183,9 +241,7 @@ export default function AlertTable({ alerts, loading, tableContainerRef }) {
               </button>
             </div>
 
-            {/* Modal Content */}
             <div className="p-6 space-y-4">
-              {/* ATM Info */}
               <div className="grid grid-cols-2 gap-4 bg-slate-950 rounded-xl p-4 border border-slate-800">
                 <div>
                   <p className="text-xs text-slate-400">ATM Code</p>
@@ -203,7 +259,6 @@ export default function AlertTable({ alerts, loading, tableContainerRef }) {
                 </div>
               </div>
 
-              {/* Zones */}
               <div className="bg-slate-950 rounded-xl p-4 border border-slate-800">
                 <p className="text-xs text-slate-400 mb-2">Affected Zones</p>
                 <div className="flex flex-wrap gap-2">
@@ -219,7 +274,6 @@ export default function AlertTable({ alerts, loading, tableContainerRef }) {
                 </div>
               </div>
 
-              {/* Full Message */}
               <div className="bg-slate-950 rounded-xl p-4 border border-slate-800">
                 <p className="text-xs text-slate-400 mb-2 flex items-center gap-2">
                   <MessageSquare className="w-4 h-4" />
@@ -232,10 +286,22 @@ export default function AlertTable({ alerts, loading, tableContainerRef }) {
                 </div>
               </div>
 
-              {/* Timestamp */}
-              <div className="flex items-center gap-2 text-slate-400 text-sm border-t border-slate-800 pt-4">
-                <Clock className="w-4 h-4 flex-shrink-0" />
-                <span>Received: {new Date(selectedAlert.receivedAt).toLocaleString()}</span>
+              <div className="flex items-center justify-between text-slate-400 text-sm border-t border-slate-800 pt-4">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 flex-shrink-0" />
+                  <span>Received: {new Date(selectedAlert.receivedAt).toLocaleString()}</span>
+                </div>
+                {canResolve && selectedAlert.status === 'PENDING' && (
+                  <button
+                    onClick={() => {
+                      handleResolve(selectedAlert.id);
+                      setShowMessageModal(false);
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg text-emerald-400 transition-colors text-sm"
+                  >
+                    <Check className="w-4 h-4" /> Resolve Now
+                  </button>
+                )}
               </div>
             </div>
           </div>

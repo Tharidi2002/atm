@@ -17,7 +17,7 @@ export default function Dashboard() {
   const tableContainerRef = useRef(null);
   const previousAlertIds = useRef(new Set());
 
-  // 🔥 Role-based redirect
+  // Role-based redirect
   useEffect(() => {
     if (user?.role === 'SUPER_ADMIN') {
       navigate('/banks');
@@ -28,8 +28,6 @@ export default function Dashboard() {
       navigate('/bank-dashboard');
       return;
     }
-    
-    // Branch Admin and Bank User stay on dashboard
   }, [user, navigate]);
 
   const loadAlerts = async () => {
@@ -64,6 +62,17 @@ export default function Dashboard() {
     }
   };
 
+  // 🔥 New: Resolve Alert function
+  const handleResolveAlert = async (alertId) => {
+    try {
+      await api.resolveAlert(alertId, user?.userId);
+      // Reload alerts
+      loadAlerts();
+    } catch (error) {
+      console.error('Error resolving alert:', error);
+    }
+  };
+
   useEffect(() => {
     if (user?.role !== 'SUPER_ADMIN' && user?.role !== 'BANK_ADMIN') {
       loadAlerts();
@@ -72,16 +81,33 @@ export default function Dashboard() {
     }
   }, [user]);
 
-  // Super Admin and Bank Admin redirect කරනවා
+  // Super Admin and Bank Admin redirect
   if (user?.role === 'SUPER_ADMIN' || user?.role === 'BANK_ADMIN') {
     return null;
   }
 
+  // 🔥 Bank User - Dashboard with Resolve button
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
       <Navbar onRefresh={loadAlerts} />
       
       <main className="p-4 sm:p-6 max-w-7xl mx-auto space-y-6">
+        {/* Role Badge */}
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400">Logged in as:</span>
+            <span className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-xs font-semibold border border-blue-500/30">
+              {user?.role}
+            </span>
+            <span className="text-xs text-slate-500">
+              {user?.fullName} • Branch: {user?.branchId}
+            </span>
+          </div>
+          <div className="text-xs text-slate-500">
+            {user?.role === 'BANK_USER' ? '👁️ View Only' : '🛠️ Full Access'}
+          </div>
+        </div>
+
         <StatsCards stats={stats} />
         
         <div className="flex justify-between items-center">
@@ -96,7 +122,13 @@ export default function Dashboard() {
           <div className="text-xs text-slate-500 font-mono">Auto-refresh every 5s</div>
         </div>
 
-        <AlertTable alerts={alerts} loading={loading} tableContainerRef={tableContainerRef} />
+        <AlertTable 
+          alerts={alerts} 
+          loading={loading} 
+          tableContainerRef={tableContainerRef}
+          onResolve={handleResolveAlert}
+          userRole={user?.role}
+        />
       </main>
 
       {newAlert && <NotificationToast alert={newAlert} onClose={() => setNewAlert(null)} />}
