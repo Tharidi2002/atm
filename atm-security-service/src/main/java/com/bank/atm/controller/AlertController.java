@@ -1,12 +1,15 @@
 package com.bank.atm.controller;
 
 import com.bank.atm.entity.AlertLog;
+import com.bank.atm.entity.AtmMachine;
+import com.bank.atm.repository.AtmMachineRepository;
 import com.bank.atm.service.AlertService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/alerts")
@@ -15,6 +18,7 @@ import java.util.Map;
 public class AlertController {
 
     private final AlertService alertService;
+    private final AtmMachineRepository atmMachineRepository;
 
     @PostMapping("/sms-simulate")
     public ResponseEntity<AlertLog> simulateSMS(@RequestBody Map<String, String> smsData) {
@@ -25,17 +29,42 @@ public class AlertController {
 
     @GetMapping
     public ResponseEntity<List<AlertLog>> getAllAlerts() {
-        return ResponseEntity.ok(alertService.getAllAlerts());
+        List<AlertLog> alerts = alertService.getAllAlerts();
+        // Each alert එකට ATM details load කරන්න
+        alerts.forEach(alert -> {
+            if (alert.getAtmId() != null) {
+                atmMachineRepository.findById(alert.getAtmId()).ifPresent(atm -> {
+                    alert.setAtmMachine(atm);
+                });
+            }
+        });
+        return ResponseEntity.ok(alerts);
     }
 
     @GetMapping("/branch/{branchId}")
     public ResponseEntity<List<AlertLog>> getAlertsByBranch(@PathVariable Long branchId) {
-        return ResponseEntity.ok(alertService.getAlertsByBranch(branchId));
+        List<AlertLog> alerts = alertService.getAlertsByBranch(branchId);
+        alerts.forEach(alert -> {
+            if (alert.getAtmId() != null) {
+                atmMachineRepository.findById(alert.getAtmId()).ifPresent(atm -> {
+                    alert.setAtmMachine(atm);
+                });
+            }
+        });
+        return ResponseEntity.ok(alerts);
     }
 
     @GetMapping("/bank/{bankId}")
     public ResponseEntity<List<AlertLog>> getAlertsByBank(@PathVariable Long bankId) {
-        return ResponseEntity.ok(alertService.getAlertsByBank(bankId));
+        List<AlertLog> alerts = alertService.getAlertsByBank(bankId);
+        alerts.forEach(alert -> {
+            if (alert.getAtmId() != null) {
+                atmMachineRepository.findById(alert.getAtmId()).ifPresent(atm -> {
+                    alert.setAtmMachine(atm);
+                });
+            }
+        });
+        return ResponseEntity.ok(alerts);
     }
 
     @PutMapping("/{alertId}/resolve")

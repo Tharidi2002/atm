@@ -8,6 +8,7 @@ import BankDashboard from './pages/BankDashboard';
 import Banks from './pages/Banks';
 import BankSelect from './pages/BankSelect';
 import Branches from './pages/Branches';
+import Atms from './pages/Atms';
 import './index.css';
 
 function PrivateRoute({ children }) {
@@ -26,6 +27,7 @@ function AppRoutes() {
       <Route path="/banks" element={<PrivateRoute><Banks /></PrivateRoute>} />
       <Route path="/bank-select" element={<PrivateRoute><BankSelect /></PrivateRoute>} />
       <Route path="/branches" element={<PrivateRoute><Branches /></PrivateRoute>} />
+      <Route path="/atms" element={<PrivateRoute><Atms /></PrivateRoute>} />
       <Route path="/" element={<Navigate to="/dashboard" />} />
     </Routes>
   );

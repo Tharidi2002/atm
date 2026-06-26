@@ -26,6 +26,7 @@ public class AlertService {
         alertLog.setReceivedAt(LocalDateTime.now());
         alertLog.setStatus(AlertLog.Status.PENDING);
 
+        // 🔥 Find ATM by SIM number
         Optional<AtmMachine> machineOpt = atmMachineRepository.findBySimNumber(fromSimNumber);
         
         if (machineOpt.isPresent()) {
@@ -33,6 +34,22 @@ public class AlertService {
             alertLog.setAtmId(atm.getId());
             alertLog.setBankId(atm.getBankId());
             alertLog.setBranchId(atm.getBranchId());
+            // 🔥 Set ATM Machine for response
+            alertLog.setAtmMachine(atm);
+        } else {
+            // If ATM not found, try to extract from message
+            // Some SMS might have ATM code in message
+            String atmCode = extractAtmCode(smsContent);
+            if (atmCode != null) {
+                Optional<AtmMachine> atmByCode = atmMachineRepository.findByAtmCode(atmCode);
+                if (atmByCode.isPresent()) {
+                    AtmMachine atm = atmByCode.get();
+                    alertLog.setAtmId(atm.getId());
+                    alertLog.setBankId(atm.getBankId());
+                    alertLog.setBranchId(atm.getBranchId());
+                    alertLog.setAtmMachine(atm);
+                }
+            }
         }
 
         String cleanMessage = smsContent;
@@ -91,6 +108,20 @@ public class AlertService {
         
         List<String> uniqueZones = zones.stream().distinct().collect(Collectors.toList());
         return uniqueZones.isEmpty() ? "" : String.join(",", uniqueZones);
+    }
+
+    // 🔥 New method to extract ATM code from message
+    private String extractAtmCode(String smsContent) {
+        if (smsContent == null || smsContent.isEmpty()) {
+            return null;
+        }
+        // Pattern for ATM code like ATM-MAIN-01, ATM-Z8B-01 etc.
+        Pattern pattern = Pattern.compile("(ATM-[A-Z0-9-]+)", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(smsContent);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
     }
 
     public List<AlertLog> getAlertsByBranch(Long branchId) {

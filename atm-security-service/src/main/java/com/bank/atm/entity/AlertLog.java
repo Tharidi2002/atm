@@ -56,6 +56,10 @@ public class AlertLog {
 
     private String notes;
 
+    // 🔥 Add this field - ATM Machine reference (Not stored in DB)
+    @Transient
+    private AtmMachine atmMachine;
+
     public enum Status {
         PENDING, ACKNOWLEDGED, RESOLVED
     }
