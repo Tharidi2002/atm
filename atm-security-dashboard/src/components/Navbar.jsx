@@ -23,8 +23,7 @@ export default function Navbar({ onRefresh }) {
 
   // 🔥 Show ARMED button for these roles
   const showArmedButton = user?.role === 'BRANCH_ADMIN' || 
-                          user?.role === 'BANK_USER' || 
-                          user?.role === 'SUPER_ADMIN';
+                          user?.role === 'BANK_USER';
 
   const renderNavLinks = () => {
     switch (user?.role) {
@@ -172,7 +171,7 @@ export default function Navbar({ onRefresh }) {
         </div>
         <div>
           <h1 className="text-xs sm:text-sm lg:text-lg font-bold tracking-wider uppercase text-white leading-tight">
-            ATM SECURITY
+            BANK SECURITY
           </h1>
           <p className="text-[8px] sm:text-[10px] lg:text-xs text-slate-400 font-mono flex items-center gap-1">
             <span className="w-1 h-1 sm:w-1.5 sm:h-1.5 bg-emerald-500 rounded-full animate-ping"></span>

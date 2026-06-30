@@ -34,7 +34,7 @@ export default function Login() {
           <div className="bg-red-500/10 p-3 rounded-2xl inline-block border border-red-500/20">
             <Shield className="w-12 h-12 text-red-500" />
           </div>
-          <h1 className="text-2xl font-bold text-white mt-4">ATM Security System</h1>
+          <h1 className="text-2xl font-bold text-white mt-4">BANK Security System</h1>
           <p className="text-slate-400 text-sm">Sign in to your account</p>
         </div>
 
