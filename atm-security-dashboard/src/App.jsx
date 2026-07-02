@@ -1,5 +1,5 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import PropTypes from 'prop-types';  // 🔥 මේක add කරන්න
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -9,14 +9,19 @@ import Banks from './pages/Banks';
 import BankSelect from './pages/BankSelect';
 import Branches from './pages/Branches';
 import Atms from './pages/Atms';
-import ArmedAlerts from './pages/ArmedAlerts';  // 🔥 New
+import ArmDisarmAlerts from './pages/ArmDisarmAlerts';
 import './index.css';
 
+// PropTypes validation for PrivateRoute
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen bg-slate-900" />;
   return user ? children : <Navigate to="/login" />;
 }
+
+PrivateRoute.propTypes = {
+  children: PropTypes.node.isRequired
+};
 
 function AppRoutes() {
   return (
@@ -29,7 +34,7 @@ function AppRoutes() {
       <Route path="/bank-select" element={<PrivateRoute><BankSelect /></PrivateRoute>} />
       <Route path="/branches" element={<PrivateRoute><Branches /></PrivateRoute>} />
       <Route path="/atms" element={<PrivateRoute><Atms /></PrivateRoute>} />
-      <Route path="/armed-alerts" element={<PrivateRoute><ArmedAlerts /></PrivateRoute>} />  // 🔥 New
+      <Route path="/arm-disarm-alerts" element={<PrivateRoute><ArmDisarmAlerts /></PrivateRoute>} />
       <Route path="/" element={<Navigate to="/dashboard" />} />
     </Routes>
   );

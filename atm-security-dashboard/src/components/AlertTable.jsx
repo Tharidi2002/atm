@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import PropTypes from 'prop-types';
 import { 
   MapPin, Clock, MessageSquare, Phone, Bell, AlertTriangle, 
-  Eye, X, Check, Calendar, Hash, Server, Building, Activity,
-  Building2, Home
+  Eye, X, Check, Power, PowerOff, ArrowRight
 } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import LoadingSkeleton from './LoadingSkeleton';
@@ -14,13 +15,40 @@ export default function AlertTable({
   onResolve,
   userRole 
 }) {
+  const navigate = useNavigate();
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [showMessageModal, setShowMessageModal] = useState(false);
   const [resolvingId, setResolvingId] = useState(null);
 
+  // Check if alert is ARMED or DISARMED
+  const isArmed = (alertType) => {
+    if (!alertType) return false;
+    const upper = alertType.toUpperCase();
+    return upper.includes('ARMED') && !upper.includes('DISARMED');
+  };
+
+  const isDisarmed = (alertType) => {
+    if (!alertType) return false;
+    const upper = alertType.toUpperCase();
+    return upper.includes('DISARMED') || (upper.includes('DISARM') && !upper.includes('ARMED'));
+  };
+
+  // Check if alert has zones (should show resolve button)
+  const hasZones = (alert) => {
+    return alert.zoneNumbers && alert.zoneNumbers !== '00' && alert.zoneNumbers !== '0';
+  };
+
   const getMessageIcon = (alertType) => {
     if (!alertType) return <MessageSquare className="w-4 h-4 text-slate-400" />;
     const lower = alertType.toLowerCase();
+    
+    if (isArmed(alertType)) {
+      return <Power className="w-4 h-4 text-green-400" />;
+    }
+    if (isDisarmed(alertType)) {
+      return <PowerOff className="w-4 h-4 text-red-400" />;
+    }
+    
     if (lower.includes('call') || lower.includes('voice') || lower.includes('incoming')) {
       return <Phone className="w-4 h-4 text-blue-400" />;
     }
@@ -58,11 +86,6 @@ export default function AlertTable({
     );
   };
 
-  // 🔥 Check if alert has zones (should show resolve button)
-  const hasZones = (alert) => {
-    return alert.zoneNumbers && alert.zoneNumbers !== '00' && alert.zoneNumbers !== '0';
-  };
-
   const handleMessageClick = (alert) => {
     setSelectedAlert(alert);
     setShowMessageModal(true);
@@ -82,11 +105,22 @@ export default function AlertTable({
     }
   };
 
-  // 🔥 Can resolve only if user has permission AND alert has zones
+  // Can resolve only if alert has zones (Zone Alerts)
   const canResolve = (alert) => {
     return (userRole === 'BANK_USER' || userRole === 'BRANCH_ADMIN') && 
            alert.status === 'PENDING' && 
            hasZones(alert);
+  };
+
+  // Show ARM/DISARM icon for ARMED/DISARMED alerts
+  const showArmDisarmIcon = (alert) => {
+    return (userRole === 'BANK_USER' || userRole === 'BRANCH_ADMIN') && 
+           (isArmed(alert.alertType) || isDisarmed(alert.alertType));
+  };
+
+  // Navigate to ARM/DISARM page
+  const goToArmDisarmPage = () => {
+    navigate('/arm-disarm-alerts');
   };
 
   if (loading) return <LoadingSkeleton />;
@@ -120,7 +154,10 @@ export default function AlertTable({
             <tbody className="divide-y divide-slate-800/50">
               {alerts.map((alert) => (
                 <tr key={alert.id} className="hover:bg-slate-900/40 transition-colors cursor-pointer">
-                  <td className="py-4 px-6"><StatusBadge status={alert.status} /></td>
+                  <td className="py-4 px-6">
+                    {/* 🔥 Pass alertType to StatusBadge */}
+                    <StatusBadge status={alert.status} alertType={alert.alertType} />
+                  </td>
                   <td className="py-4 px-6 font-mono font-bold text-white text-sm">
                     {alert.atmMachine?.atmCode || 'UNKNOWN'}
                   </td>
@@ -151,27 +188,35 @@ export default function AlertTable({
                   </td>
                   {(userRole === 'BANK_USER' || userRole === 'BRANCH_ADMIN') && (
                     <td className="py-4 px-6">
-                      {canResolve(alert) ? (
-                        <button
-                          onClick={() => handleResolve(alert.id)}
-                          disabled={resolvingId === alert.id}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg text-emerald-400 transition-colors text-xs disabled:opacity-50"
-                        >
-                          {resolvingId === alert.id ? (
-                            'Processing...'
-                          ) : (
-                            <>
-                              <Check className="w-3.5 h-3.5" /> Resolve
-                            </>
-                          )}
-                        </button>
-                      ) : alert.status === 'RESOLVED' ? (
-                        <span className="text-xs text-slate-500">✓ Resolved</span>
-                      ) : !hasZones(alert) ? (
-                        <span className="text-xs text-slate-500">—</span>
-                      ) : (
-                        <span className="text-xs text-slate-500">—</span>
-                      )}
+                      <div className="flex items-center justify-center gap-2">
+                        {canResolve(alert) ? (
+                          <button
+                            onClick={() => handleResolve(alert.id)}
+                            disabled={resolvingId === alert.id}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg text-emerald-400 transition-colors text-xs disabled:opacity-50"
+                          >
+                            {resolvingId === alert.id ? (
+                              'Processing...'
+                            ) : (
+                              <>
+                                <Check className="w-3.5 h-3.5" /> Resolve
+                              </>
+                            )}
+                          </button>
+                        ) : alert.status === 'RESOLVED' ? (
+                          <span className="text-xs text-slate-500">✓ Resolved</span>
+                        ) : showArmDisarmIcon(alert) ? (
+                          <button
+                            onClick={goToArmDisarmPage}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 rounded-lg text-purple-400 transition-colors text-xs"
+                            title="Manage ARM/DISARM alerts"
+                          >
+                            <ArrowRight className="w-3.5 h-3.5" /> ARM/DISARM
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-500">—</span>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -186,7 +231,8 @@ export default function AlertTable({
             <div key={alert.id} className="p-4 hover:bg-slate-900/40 transition-colors cursor-pointer">
               <div className="flex justify-between items-start mb-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <StatusBadge status={alert.status} />
+                  {/* 🔥 Pass alertType to StatusBadge */}
+                  <StatusBadge status={alert.status} alertType={alert.alertType} />
                   <span className="font-mono font-bold text-white text-sm">
                     {alert.atmMachine?.atmCode || 'UNKNOWN'}
                   </span>
@@ -232,26 +278,28 @@ export default function AlertTable({
                     <Check className="w-3 h-3" /> Resolve
                   </button>
                 )}
+                {(userRole === 'BANK_USER' || userRole === 'BRANCH_ADMIN') && showArmDisarmIcon(alert) && (
+                  <button
+                    onClick={goToArmDisarmPage}
+                    className="flex items-center gap-1 px-2 py-1 bg-purple-500/10 hover:bg-purple-500/20 rounded-lg text-purple-400 transition-colors text-xs"
+                  >
+                    <ArrowRight className="w-3 h-3" /> ARM/DISARM
+                  </button>
+                )}
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Message Details Modal - Full Details */}
+      {/* Message Details Modal */}
       {showMessageModal && selectedAlert && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto shadow-2xl">
-            {/* Modal Header */}
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-y-auto shadow-2xl">
             <div className="flex justify-between items-center p-6 border-b border-slate-800 sticky top-0 bg-slate-900/95 backdrop-blur z-10">
               <div className="flex items-center gap-3">
-                <div className="bg-red-500/10 p-2 rounded-lg border border-red-500/20">
-                  <AlertTriangle className="w-5 h-5 text-red-500" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-white">Alert Details</h2>
-                  <p className="text-xs text-slate-400">ID: #{selectedAlert.id}</p>
-                </div>
+                {getMessageIcon(selectedAlert.alertType)}
+                <h2 className="text-xl font-bold text-white">Message Details</h2>
               </div>
               <button
                 onClick={() => setShowMessageModal(false)}
@@ -261,97 +309,45 @@ export default function AlertTable({
               </button>
             </div>
 
-            {/* Modal Content */}
             <div className="p-6 space-y-4">
-              {/* ATM Info Card */}
-              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-                <h3 className="text-xs text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Server className="w-4 h-4" /> ATM Information
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div>
-                    <p className="text-[10px] text-slate-500">ATM Code</p>
-                    <p className="text-white font-mono font-bold text-sm">
-                      {selectedAlert.atmMachine?.atmCode || 'UNKNOWN'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-500">Status</p>
-                    <StatusBadge status={selectedAlert.status} />
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-[10px] text-slate-500">Location</p>
-                    <p className="text-slate-300 text-sm flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                      {selectedAlert.atmMachine?.location || 'Unknown'}
-                    </p>
-                  </div>
+              <div className="grid grid-cols-2 gap-4 bg-slate-950 rounded-xl p-4 border border-slate-800">
+                <div>
+                  <p className="text-xs text-slate-400">ATM Code</p>
+                  <p className="text-white font-mono font-bold">
+                    {selectedAlert.atmMachine?.atmCode || 'UNKNOWN'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Status</p>
+                  {/* 🔥 Pass alertType to StatusBadge */}
+                  <StatusBadge status={selectedAlert.status} alertType={selectedAlert.alertType} />
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs text-slate-400">Location</p>
+                  <p className="text-slate-300">{selectedAlert.atmMachine?.location || 'Unknown'}</p>
                 </div>
               </div>
 
-              {/* Bank & Branch Info Card */}
-              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-                <h3 className="text-xs text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Building className="w-4 h-4" /> Organization Information
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-[10px] text-slate-500 flex items-center gap-1">
-                      <Building2 className="w-3 h-3" /> Bank
-                    </p>
-                    <p className="text-white font-semibold text-sm">
-                      {selectedAlert.bank?.bankName || 'Unknown Bank'}
-                    </p>
-                    {selectedAlert.bank?.bankCode && (
-                      <p className="text-xs text-slate-400">{selectedAlert.bank.bankCode}</p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-500 flex items-center gap-1">
-                      <Home className="w-3 h-3" /> Branch
-                    </p>
-                    <p className="text-white font-semibold text-sm">
-                      {selectedAlert.branch?.branchName || 'Unknown Branch'}
-                    </p>
-                    {selectedAlert.branch?.branchCode && (
-                      <p className="text-xs text-slate-400">{selectedAlert.branch.branchCode}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Zones Card */}
-              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-                <h3 className="text-xs text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Hash className="w-4 h-4" /> Affected Zones
-                </h3>
+              <div className="bg-slate-950 rounded-xl p-4 border border-slate-800">
+                <p className="text-xs text-slate-400 mb-2">Affected Zones</p>
                 <div className="flex flex-wrap gap-2">
                   {selectedAlert.zoneNumbers && selectedAlert.zoneNumbers !== '00' ? (
-                    selectedAlert.zoneNumbers.split(',').map((zone, i) => {
-                      const zoneNum = String(zone).padStart(2, '0');
-                      return (
-                        <span key={i} className="px-3 py-1.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-sm font-bold flex items-center gap-1.5">
-                          <AlertTriangle className="w-3.5 h-3.5" />
-                          Zone {zoneNum}
-                        </span>
-                      );
-                    })
+                    selectedAlert.zoneNumbers.split(',').map((zone, i) => (
+                      <span key={i} className="px-3 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-sm font-bold">
+                        Zone {String(zone).padStart(2, '0')}
+                      </span>
+                    ))
                   ) : (
-                    <span className="text-slate-500">No zones detected (Informational)</span>
+                    <span className="text-slate-500">No Zone</span>
                   )}
                 </div>
-                {selectedAlert.zoneNumbers && selectedAlert.zoneNumbers !== '00' && (
-                  <p className="text-xs text-slate-500 mt-2">
-                    Total: {selectedAlert.zoneNumbers.split(',').length} zones affected
-                  </p>
-                )}
               </div>
 
-              {/* Message Card */}
-              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-                <h3 className="text-xs text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" /> Alert Message
-                </h3>
+              <div className="bg-slate-950 rounded-xl p-4 border border-slate-800">
+                <p className="text-xs text-slate-400 mb-2 flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4" />
+                  Full Message
+                </p>
                 <div className="bg-slate-900 rounded-lg p-4 border border-slate-700">
                   <p className="text-white font-mono text-sm whitespace-pre-wrap break-words leading-relaxed">
                     {selectedAlert.rawMessage || selectedAlert.alertType || 'No message'}
@@ -359,44 +355,11 @@ export default function AlertTable({
                 </div>
               </div>
 
-              {/* Timestamps */}
-              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
-                <h3 className="text-xs text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                  <Clock className="w-4 h-4" /> Timeline
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <p className="text-[10px] text-slate-500">Received At</p>
-                    <p className="text-slate-300 text-sm">
-                      {new Date(selectedAlert.receivedAt).toLocaleString()}
-                    </p>
-                  </div>
-                  {selectedAlert.acknowledgedAt && (
-                    <div>
-                      <p className="text-[10px] text-slate-500">Acknowledged At</p>
-                      <p className="text-slate-300 text-sm">
-                        {new Date(selectedAlert.acknowledgedAt).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                  {selectedAlert.resolvedAt && (
-                    <div>
-                      <p className="text-[10px] text-slate-500">Resolved At</p>
-                      <p className="text-emerald-400 text-sm">
-                        {new Date(selectedAlert.resolvedAt).toLocaleString()}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                {selectedAlert.notes && (
-                  <div className="mt-3 pt-3 border-t border-slate-800">
-                    <p className="text-[10px] text-slate-500">Notes</p>
-                    <p className="text-slate-300 text-sm">{selectedAlert.notes}</p>
-                  </div>
-                )}
+              <div className="flex items-center gap-2 text-slate-400 text-sm border-t border-slate-800 pt-4">
+                <Clock className="w-4 h-4 flex-shrink-0" />
+                <span>Received: {new Date(selectedAlert.receivedAt).toLocaleString()}</span>
               </div>
 
-              {/* Action Buttons */}
               <div className="flex flex-wrap gap-3 pt-2">
                 <button
                   onClick={() => setShowMessageModal(false)}
@@ -404,9 +367,7 @@ export default function AlertTable({
                 >
                   Close
                 </button>
-                {(userRole === 'BANK_USER' || userRole === 'BRANCH_ADMIN') && 
-                 selectedAlert.status === 'PENDING' && 
-                 hasZones(selectedAlert) && (
+                {canResolve(selectedAlert) && (
                   <button
                     onClick={() => {
                       handleResolve(selectedAlert.id);
@@ -417,6 +378,17 @@ export default function AlertTable({
                     <Check className="w-4 h-4" /> Resolve Alert
                   </button>
                 )}
+                {showArmDisarmIcon(selectedAlert) && (
+                  <button
+                    onClick={() => {
+                      setShowMessageModal(false);
+                      goToArmDisarmPage();
+                    }}
+                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                  >
+                    <ArrowRight className="w-4 h-4" /> ARM/DISARM Page
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -425,3 +397,12 @@ export default function AlertTable({
     </>
   );
 }
+
+// PropTypes validation
+AlertTable.propTypes = {
+  alerts: PropTypes.array.isRequired,
+  loading: PropTypes.bool.isRequired,
+  tableContainerRef: PropTypes.object,
+  onResolve: PropTypes.func.isRequired,
+  userRole: PropTypes.string
+};

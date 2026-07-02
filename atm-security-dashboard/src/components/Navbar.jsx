@@ -1,8 +1,8 @@
-import React from 'react';
+import PropTypes from 'prop-types';  // 🔥 මේක add කරන්න
 import { 
-  Shield, RefreshCw, LogOut, Building, MapPin, Home, 
-  LayoutDashboard, Server, AlertTriangle, Smartphone,
-  Users, Settings, Bell, Activity, Eye, ShieldAlert
+  Shield, RefreshCw, LogOut, Building, Home, 
+  LayoutDashboard, Server, AlertTriangle,
+  Power
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
@@ -21,9 +21,7 @@ export default function Navbar({ onRefresh }) {
 
   const isActive = (path) => location.pathname === path;
 
-  // 🔥 Show ARMED button for these roles
-  const showArmedButton = user?.role === 'BRANCH_ADMIN' || 
-                          user?.role === 'BANK_USER';
+  const showArmDisarmButton = user?.role === 'BRANCH_ADMIN' || user?.role === 'BANK_USER';
 
   const renderNavLinks = () => {
     switch (user?.role) {
@@ -41,19 +39,6 @@ export default function Navbar({ onRefresh }) {
               <Building className="w-4 h-4" /> 
               <span className="hidden xs:inline">Banks</span>
             </Link>
-            {showArmedButton && (
-              <Link
-                to="/armed-alerts"
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all border ${
-                  isActive('/armed-alerts')
-                    ? 'bg-red-500/20 border-red-500/40 text-red-400'
-                    : 'bg-red-500/10 hover:bg-red-500/20 border-red-500/20 text-red-400'
-                }`}
-              >
-                <ShieldAlert className="w-4 h-4" /> 
-                <span className="hidden xs:inline">ARMED</span>
-              </Link>
-            )}
             <Link
               to="/dashboard"
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all border ${
@@ -83,17 +68,19 @@ export default function Navbar({ onRefresh }) {
               <AlertTriangle className="w-4 h-4" /> 
               <span className="hidden xs:inline">Alerts</span>
             </Link>
-            <Link
-              to="/armed-alerts"
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all border ${
-                isActive('/armed-alerts')
-                  ? 'bg-red-500/20 border-red-500/40 text-red-400'
-                  : 'bg-red-500/10 hover:bg-red-500/20 border-red-500/20 text-red-400'
-              }`}
-            >
-              <ShieldAlert className="w-4 h-4" /> 
-              <span className="hidden xs:inline">ARMED</span>
-            </Link>
+            {showArmDisarmButton && (
+              <Link
+                to="/arm-disarm-alerts"
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all border ${
+                  isActive('/arm-disarm-alerts')
+                    ? 'bg-red-500/20 border-red-500/40 text-red-400'
+                    : 'bg-red-500/10 hover:bg-red-500/20 border-red-500/20 text-red-400'
+                }`}
+              >
+                <Power className="w-4 h-4" /> 
+                <span className="hidden xs:inline">ARM/DISARM</span>
+              </Link>
+            )}
             <Link
               to="/atms"
               className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all border ${
@@ -184,7 +171,7 @@ export default function Navbar({ onRefresh }) {
         {renderNavLinks()}
 
         <span className="text-[8px] sm:text-[10px] lg:text-xs text-slate-400 hidden md:block truncate max-w-[80px] lg:max-w-none">
-          👤 {user?.fullName?.split(' ')[0] || 'User'}
+          {user?.fullName?.split(' ')[0] || 'User'}
         </span>
         
         <button 
@@ -206,3 +193,7 @@ export default function Navbar({ onRefresh }) {
     </nav>
   );
 }
+
+Navbar.propTypes = {
+  onRefresh: PropTypes.func.isRequired
+};

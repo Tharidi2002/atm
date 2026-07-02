@@ -1,17 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Shield, AlertTriangle, MapPin, Clock, Eye, 
-  Search, Filter, Calendar, X, Check, Smartphone,
-  Building, Home, Activity, Bell, RefreshCw,
-  ChevronDown, ChevronUp
+  Search, X, Check, RefreshCw,
+  ChevronDown, ChevronUp, Power, PowerOff
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import Navbar from '../components/Navbar';
 import StatusBadge from '../components/StatusBadge';
 
-export default function ArmedAlerts() {
+export default function ArmDisarmAlerts() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [alerts, setAlerts] = useState([]);
@@ -25,69 +24,70 @@ export default function ArmedAlerts() {
   const [expandedRows, setExpandedRows] = useState({});
   const [resolvingId, setResolvingId] = useState(null);
 
-  // 🔥 Role-based access - Only BRANCH_ADMIN and BANK_USER can view ARMED alerts
+  // Role-based access
   useEffect(() => {
     if (!user) {
       navigate('/login');
       return;
     }
     
-    // 🔥 Super Admin ට ARMED alerts පෙන්වන්න එපා
     if (user?.role === 'SUPER_ADMIN') {
       navigate('/banks');
       return;
     }
     
-    // 🔥 Bank Admin ටත් පෙන්වන්න එපා
     if (user?.role === 'BANK_ADMIN') {
       navigate('/bank-dashboard');
       return;
     }
     
-    // 🔥 Only BRANCH_ADMIN and BANK_USER can view
     if (user?.role !== 'BRANCH_ADMIN' && user?.role !== 'BANK_USER') {
       navigate('/dashboard');
       return;
     }
     
-    loadArmedAlerts();
+    loadArmDisarmAlerts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, navigate]);
 
-  const loadArmedAlerts = async () => {
+  const loadArmDisarmAlerts = async () => {
     try {
       setLoading(true);
       let allAlerts = [];
       
-      // 🔥 Branch Admin සහ Bank User ට තමන්ගේ branch එකේ alerts විතරයි
       if (user?.role === 'BRANCH_ADMIN' || user?.role === 'BANK_USER') {
         allAlerts = await api.getAlertsByBranch(user?.branchId);
       }
       
-      // Filter only ARMED alerts
-      const armedAlerts = allAlerts.filter(alert => {
+      // Filter only ARMED and DISARMED alerts (exclude Zone alerts)
+      const armDisarmAlerts = allAlerts.filter(alert => {
         if (!alert.alertType) return false;
-        const upper = alert.alertType.toUpperCase();
-        return upper.includes('ARMED') || upper.includes('ARM');
+        const upper = alert.alertType.toUpperCase().trim();
+        
+        // Exact match for ARMED or DISARMED (not containing ZONE or ALARM)
+        const isArmed = upper.includes('ARMED') && !upper.includes('ZONE') && !upper.includes('ALARM');
+        const isDisarmed = (upper.includes('DISARMED') || upper.includes('DISARM')) && !upper.includes('ZONE') && !upper.includes('ALARM');
+        
+        return isArmed || isDisarmed;
       });
       
-      setAlerts(armedAlerts);
-      setFilteredAlerts(armedAlerts);
+      setAlerts(armDisarmAlerts);
+      setFilteredAlerts(armDisarmAlerts);
     } catch (error) {
-      console.error('Error loading ARMED alerts:', error);
+      console.error('Error loading ARM/DISARM alerts:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔥 Resolve Alert function (Bank User and Branch Admin can resolve)
   const handleResolve = async (alertId) => {
     if (resolvingId) return;
-    if (!window.confirm('Are you sure you want to resolve this alert?')) return;
+    if (!window.confirm('Are you sure you want to resolve this DISARMED alert?')) return;
     
     setResolvingId(alertId);
     try {
       await api.resolveAlert(alertId, user?.userId);
-      loadArmedAlerts();
+      loadArmDisarmAlerts();
     } catch (error) {
       console.error('Error resolving alert:', error);
     } finally {
@@ -95,6 +95,7 @@ export default function ArmedAlerts() {
     }
   };
 
+  // Filter effect
   useEffect(() => {
     let filtered = alerts;
     
@@ -132,17 +133,42 @@ export default function ArmedAlerts() {
     }));
   };
 
-  const getStatusBadge = (status) => {
-    const styles = {
-      'PENDING': 'bg-red-500/20 text-red-400 border border-red-500/30',
-      'ACKNOWLEDGED': 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
-      'RESOLVED': 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-    };
-    return (
-      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${styles[status] || styles.PENDING}`}>
-        {status}
-      </span>
-    );
+  const isArmed = (alertType) => {
+    if (!alertType) return false;
+    const upper = alertType.toUpperCase();
+    return upper.includes('ARMED') && !upper.includes('DISARMED');
+  };
+
+  const isDisarmed = (alertType) => {
+    if (!alertType) return false;
+    const upper = alertType.toUpperCase();
+    return upper.includes('DISARMED') || (upper.includes('DISARM') && !upper.includes('ARMED'));
+  };
+
+  const getTypeIcon = (alertType) => {
+    if (isArmed(alertType)) {
+      return <Power className="w-3.5 h-3.5 text-green-400" />;
+    } else if (isDisarmed(alertType)) {
+      return <PowerOff className="w-3.5 h-3.5 text-red-400" />;
+    }
+    return <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />;
+  };
+
+  const getTypeBadge = (alertType) => {
+    if (isArmed(alertType)) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30">
+          ARMED
+        </span>
+      );
+    } else if (isDisarmed(alertType)) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30">
+          DISARMED
+        </span>
+      );
+    }
+    return null;
   };
 
   const getMessagePreview = (text) => {
@@ -157,18 +183,21 @@ export default function ArmedAlerts() {
     setDateFilter('');
   };
 
-  // 🔥 Can resolve only if user is BANK_USER or BRANCH_ADMIN and alert is PENDING
+  // Can resolve only DISARMED alerts
   const canResolve = (alert) => {
     return (user?.role === 'BANK_USER' || user?.role === 'BRANCH_ADMIN') && 
-           alert.status === 'PENDING';
+           alert.status === 'PENDING' &&
+           isDisarmed(alert.alertType);
   };
+
+  const showResolveColumn = user?.role === 'BANK_USER' || user?.role === 'BRANCH_ADMIN';
 
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-900 text-slate-100">
-        <Navbar onRefresh={loadArmedAlerts} />
+        <Navbar onRefresh={loadArmDisarmAlerts} />
         <div className="flex items-center justify-center h-[60vh]">
-          <div className="text-slate-400">Loading ARMED alerts...</div>
+          <div className="text-slate-400">Loading ARM/DISARM alerts...</div>
         </div>
       </div>
     );
@@ -176,7 +205,7 @@ export default function ArmedAlerts() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100">
-      <Navbar onRefresh={loadArmedAlerts} />
+      <Navbar onRefresh={loadArmDisarmAlerts} />
       
       <main className="p-3 sm:p-4 md:p-6 max-w-7xl mx-auto space-y-4 md:space-y-6">
         {/* Header */}
@@ -186,7 +215,7 @@ export default function ArmedAlerts() {
               <div className="bg-red-500/10 p-1.5 sm:p-2 rounded-xl border border-red-500/20">
                 <Shield className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 text-red-500" />
               </div>
-              ARMED Alerts
+              ARM / DISARM Alerts
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 mt-0.5 sm:mt-1">
               {filteredAlerts.length} alerts found • {alerts.filter(a => a.status === 'PENDING').length} pending
@@ -197,7 +226,7 @@ export default function ArmedAlerts() {
               {new Date().toLocaleTimeString()}
             </span>
             <button
-              onClick={loadArmedAlerts}
+              onClick={loadArmDisarmAlerts}
               className="flex items-center gap-1 sm:gap-2 bg-slate-800 hover:bg-slate-700 px-2 sm:px-3 py-1.5 rounded-lg transition-colors text-[10px] sm:text-sm"
             >
               <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" /> 
@@ -283,9 +312,9 @@ export default function ArmedAlerts() {
           {filteredAlerts.length === 0 ? (
             <div className="p-8 sm:p-12 text-center">
               <Shield className="w-10 h-10 sm:w-12 sm:h-12 text-slate-600 mx-auto mb-3" />
-              <p className="text-slate-400 text-sm sm:text-base">No ARMED alerts found</p>
+              <p className="text-slate-400 text-sm sm:text-base">No ARM/DISARM alerts found</p>
               <p className="text-slate-500 text-xs sm:text-sm mt-1">
-                {alerts.length > 0 ? 'Try changing your filters' : 'No ARMED alerts in the system yet'}
+                No ARMED or DISARMED alerts in the system yet
               </p>
             </div>
           ) : (
@@ -296,17 +325,23 @@ export default function ArmedAlerts() {
                   <thead className="bg-slate-900/50 text-slate-400 uppercase text-xs tracking-wider border-b border-slate-800 font-mono">
                     <tr>
                       <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4">Type</th>
                       <th className="py-3 px-4">ATM</th>
                       <th className="py-3 px-4">Location</th>
                       <th className="py-3 px-4">Message</th>
                       <th className="py-3 px-4">Time</th>
-                      <th className="py-3 px-4 text-center">Action</th>
+                      {showResolveColumn && (
+                        <th className="py-3 px-4 text-center">Action</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/50">
                     {filteredAlerts.map((alert) => (
                       <tr key={alert.id} className="hover:bg-slate-900/40 transition-colors">
-                        <td className="py-3 px-4">{getStatusBadge(alert.status)}</td>
+                        <td className="py-3 px-4">
+                          <StatusBadge status={alert.status} alertType={alert.alertType} />
+                        </td>
+                        <td className="py-3 px-4">{getTypeBadge(alert.alertType)}</td>
                         <td className="py-3 px-4 font-mono font-bold text-white text-sm">
                           {alert.atmMachine?.atmCode || 'UNKNOWN'}
                         </td>
@@ -318,7 +353,7 @@ export default function ArmedAlerts() {
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2 max-w-xs">
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                            {getTypeIcon(alert.alertType)}
                             <span className="text-sm text-slate-300 truncate">
                               {getMessagePreview(alert.alertType)}
                             </span>
@@ -330,35 +365,36 @@ export default function ArmedAlerts() {
                             {new Date(alert.receivedAt).toLocaleString()}
                           </div>
                         </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => viewDetails(alert)}
-                              className="flex items-center gap-1 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg text-blue-400 transition-colors text-xs"
-                            >
-                              <Eye className="w-3.5 h-3.5" /> Details
-                            </button>
-                            {/* 🔥 Resolve button - only for BANK_USER and BRANCH_ADMIN */}
-                            {canResolve(alert) && (
+                        {showResolveColumn && (
+                          <td className="py-3 px-4">
+                            <div className="flex items-center justify-center gap-2">
                               <button
-                                onClick={() => handleResolve(alert.id)}
-                                disabled={resolvingId === alert.id}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg text-emerald-400 transition-colors text-xs disabled:opacity-50"
+                                onClick={() => viewDetails(alert)}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 rounded-lg text-blue-400 transition-colors text-xs"
                               >
-                                {resolvingId === alert.id ? (
-                                  '...'
-                                ) : (
-                                  <>
-                                    <Check className="w-3.5 h-3.5" /> Resolve
-                                  </>
-                                )}
+                                <Eye className="w-3.5 h-3.5" /> Details
                               </button>
-                            )}
-                            {alert.status === 'RESOLVED' && (
-                              <span className="text-xs text-slate-500">✓ Resolved</span>
-                            )}
-                          </div>
-                        </td>
+                              {canResolve(alert) && (
+                                <button
+                                  onClick={() => handleResolve(alert.id)}
+                                  disabled={resolvingId === alert.id}
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 rounded-lg text-emerald-400 transition-colors text-xs disabled:opacity-50"
+                                >
+                                  {resolvingId === alert.id ? (
+                                    '...'
+                                  ) : (
+                                    <>
+                                      <Check className="w-3.5 h-3.5" /> Resolve
+                                    </>
+                                  )}
+                                </button>
+                              )}
+                              {alert.status === 'RESOLVED' && (
+                                <span className="text-xs text-slate-500">✓ Resolved</span>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -371,7 +407,8 @@ export default function ArmedAlerts() {
                   <div key={alert.id} className="p-3 sm:p-4 hover:bg-slate-900/40 transition-colors">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex items-center gap-2 flex-wrap">
-                        {getStatusBadge(alert.status)}
+                        <StatusBadge status={alert.status} alertType={alert.alertType} />
+                        {getTypeBadge(alert.alertType)}
                         <span className="font-mono font-bold text-white text-xs sm:text-sm">
                           {alert.atmMachine?.atmCode || 'UNKNOWN'}
                         </span>
@@ -395,7 +432,7 @@ export default function ArmedAlerts() {
                       </div>
                       
                       <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-3 h-3 text-amber-400 flex-shrink-0" />
+                        {getTypeIcon(alert.alertType)}
                         <span className="text-xs text-slate-300 truncate flex-1">
                           {getMessagePreview(alert.alertType)}
                         </span>
@@ -406,7 +443,6 @@ export default function ArmedAlerts() {
                           <Clock className="w-3 h-3 flex-shrink-0" />
                           {new Date(alert.receivedAt).toLocaleString()}
                         </div>
-                        {/* 🔥 Mobile Resolve button */}
                         {canResolve(alert) && (
                           <button
                             onClick={() => handleResolve(alert.id)}
@@ -453,7 +489,9 @@ export default function ArmedAlerts() {
                   <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-red-500" />
                 </div>
                 <div>
-                  <h2 className="text-base sm:text-xl font-bold text-white">ARMED Alert Details</h2>
+                  <h2 className="text-base sm:text-xl font-bold text-white">
+                    {isArmed(selectedAlert.alertType) ? 'ARMED' : 'DISARMED'} Alert Details
+                  </h2>
                   <p className="text-[10px] sm:text-xs text-slate-400">ID: #{selectedAlert.id}</p>
                 </div>
               </div>
@@ -470,12 +508,16 @@ export default function ArmedAlerts() {
                 <h3 className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wider mb-2 sm:mb-3">Alert Information</h3>
                 <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   <div>
-                    <p className="text-[8px] sm:text-[10px] text-slate-500">ATM Code</p>
-                    <p className="text-white font-mono font-bold text-xs sm:text-sm">{selectedAlert.atmMachine?.atmCode || 'UNKNOWN'}</p>
+                    <p className="text-[8px] sm:text-[10px] text-slate-500">Type</p>
+                    {getTypeBadge(selectedAlert.alertType)}
                   </div>
                   <div>
                     <p className="text-[8px] sm:text-[10px] text-slate-500">Status</p>
-                    {getStatusBadge(selectedAlert.status)}
+                    <StatusBadge status={selectedAlert.status} alertType={selectedAlert.alertType} />
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[8px] sm:text-[10px] text-slate-500">ATM Code</p>
+                    <p className="text-white font-mono font-bold text-xs sm:text-sm">{selectedAlert.atmMachine?.atmCode || 'UNKNOWN'}</p>
                   </div>
                   <div className="col-span-2">
                     <p className="text-[8px] sm:text-[10px] text-slate-500">Location</p>
@@ -502,7 +544,6 @@ export default function ArmedAlerts() {
                 </div>
               </div>
 
-              {/* 🔥 Modal Resolve button */}
               {canResolve(selectedAlert) && selectedAlert.status === 'PENDING' && (
                 <button
                   onClick={() => {
@@ -511,7 +552,7 @@ export default function ArmedAlerts() {
                   }}
                   className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 sm:py-2.5 rounded-lg transition-colors text-xs sm:text-sm flex items-center justify-center gap-2"
                 >
-                  <Check className="w-4 h-4" /> Resolve Alert
+                  <Check className="w-4 h-4" /> Resolve DISARMED Alert
                 </button>
               )}
 
